@@ -15,13 +15,25 @@ const mUpload = multer({
   }
 })
 
-// exports = module.exports = createGallery;
+exports = module.exports = createGallery;
 
 // *****************************************************************************
 
-exports.upload = function(req, res, next) {
-  mUpload.single('photos')(req, res, function(){
-    console.log(req.file);
-    res.end("finish")
-  })
+function createGallery(initOptions){
+  const galleryRoot = initOptions.galleryLocation || path.join(process.mainModule.paths[0].split('node_modules')[0].slice(0, -1), 'public', 'images', 'gallery'); // Thank you pddivine: Finds root of express app.
+  const imageFileSelectField = initOptions.imageFileSelectField || 'images';
+
+  function upload(options) { // TODO add options like using as middleware
+    return function(req, res, next) {
+      mUpload.array(imageFileSelectField)(req, res, function(){
+        console.log(req.files);
+        console.log(req.body);
+        next();
+      })
+    }
+  }
+
+  return {
+    upload
+  }
 }
