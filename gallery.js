@@ -3,7 +3,7 @@ const path = require('path');
 const jimp = require('jimp');
 const multer = require('multer')
 
-const upload = multer({
+const mUpload = multer({
   storage: multer.memoryStorage(),
   fileFilter(req, file, next){
     const isPhoto = file.mimetype.startsWith('image/');
@@ -15,17 +15,13 @@ const upload = multer({
   }
 })
 
-exports = module.exports = createGallery;
+// exports = module.exports = createGallery;
 
 // *****************************************************************************
 
-function createGallery (options) {
-  function upload(req, res, next) {
-
-    return next();
-  }
-
-  return {
-    upload
-  }
+exports.upload = function(req, res, next) {
+  mUpload.single('photos')(req, res, function(){
+    console.log(req.file);
+    res.end("finish")
+  })
 }
