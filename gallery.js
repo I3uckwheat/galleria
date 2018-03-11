@@ -15,14 +15,15 @@ const mUpload = multer({
   }
 })
 
-const rootDir = path.join(process.mainModule.paths[0].split('node_modules')[0].slice(0, -1), 'public'); // Thank you pddivine: Finds root of express app.
+const publicRootDir = path.join(process.mainModule.paths[0].split('node_modules')[0].slice(0, -1), 'public'); // Thank you pddivine: Finds root of express app.
 
 exports = module.exports = createGallery;
 
   //************************************************************************//
 
 function createGallery(initOptions){
-  const galleryRoot = path.join(rootDir, (initOptions.galleryLocation || path.join('images', 'gallery')));
+  const galleryRoot = path.join(publicRootDir, (initOptions.galleryLocation || path.join('images', 'gallery')));
+  const galleryPublicRoot = initOptions.galleryLocation || path.join('images', 'gallery');
   const category = initOptions.categoryField || 'category';
   const imageFileSelectField = initOptions.imageFileSelectField || 'images';
   const imageWidth = initOptions.imageWidth;
@@ -30,6 +31,7 @@ function createGallery(initOptions){
 
   return {
     upload,
+    getIndex,
   }
 
   //************************************************************************//
@@ -49,6 +51,17 @@ function createGallery(initOptions){
     }
   }
 
+  function getIndex(req, res, next) {
+    getCategories(galleryRoot)
+      .then(generateCategoryCards)
+      .then((cards) => {
+        console.log(cards);
+        req.gallery = cards
+        next();
+      })
+      .catch(next);
+  }
+
   function saveImage(file, category) { // TODO allow renaming from form field
     return jimp.read(file.buffer)
       .then((image) => {
@@ -66,5 +79,37 @@ function createGallery(initOptions){
       console.log(path.join(galleryRoot, category, 'thumbnails', `_${file.originalname}`));
     })
     .catch(console.error)
+  }
+
+  function getCategories(directory) {
+    return new Promise((resolve, reject) => {
+      fs.readdir(directory, (err, categories) => {
+        if(err) reject(err);
+        resolve(categories);
+      })
+    })
+  }
+
+  function generateCategoryCards(categories) {
+    return Promise.all(categories.map(category => {
+      return getCategoryThumbnails(category)
+        .then(thumbnails => ({
+          category,
+          thumbnail: thumbnails[0]
+        }))
+        .catch(err => err);
+    }));
+  }
+
+  function getCategoryThumbnails(category) {
+    return new Promise((resolve, reject) => {
+      fs.readdir(path.join(galleryRoot, category), (err, contents) => {
+        if(err) reject(err);
+        thumbnails = contents.filter(fileName => fileName !== 'thumbnails');
+        resolve(thumbnails.map(thumbnail => {
+          return path.join(galleryPublicRoot, category, 'thumbnails', thumbnail);
+        }));
+      });
+    });
   }
 }
