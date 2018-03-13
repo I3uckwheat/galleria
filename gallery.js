@@ -1,4 +1,4 @@
-const fs = require('fs');
+const fs = require('fs-extra');
 const path = require('path');
 const jimp = require('jimp');
 const multer = require('multer')
@@ -32,6 +32,9 @@ function createGallery(initOptions){
   return {
     upload,
     getIndex,
+    getImagesFromCategory,
+    removeCategory,
+    removeImage
   }
 
   //************************************************************************//
@@ -62,6 +65,35 @@ function createGallery(initOptions){
       .catch(next);
   }
 
+  function getImagesFromCategory(req, res, next) { // TODO - allow passing of arguments for category
+    generateImageCards(req.params.category)
+      .then(imageCards => {
+        req.gallery = imageCards;
+        next();
+      })
+      .catch(() => next());
+  }
+
+   function removeCategory(req, res, next){ // TODO check for windows compatibility
+      fs.remove(path.join(galleryRoot, req.params.category))
+        .then(() => res.status(204).send(''))
+        .catch(next);
+  }
+
+  function removeImage(req, res, next){
+    const category = req.params.category;
+    const image = req.params.image;
+
+    fs.unlink(path.join(galleryRoot, category, image))
+      .then(() => {
+        fs.unlink(path.join(galleryRoot, category, 'thumbnails', `_${image}`))
+      })
+      .then(() => {
+        res.status(202).send('');
+      })
+      .catch((err) => res.status(400).send(err));
+  }
+
   function saveImage(file, category) { // TODO allow renaming from form field
     return jimp.read(file.buffer)
       .then((image) => {
@@ -81,7 +113,7 @@ function createGallery(initOptions){
     .catch(console.error)
   }
 
-  function getCategories(directory) {
+  function getCategories(directory) { // TODO - do not show empty categories and/or remove them
     return new Promise((resolve, reject) => {
       fs.readdir(directory, (err, categories) => {
         if(err) reject(err);
@@ -103,13 +135,29 @@ function createGallery(initOptions){
 
   function getCategoryThumbnails(category) {
     return new Promise((resolve, reject) => {
-      fs.readdir(path.join(galleryRoot, category), (err, contents) => {
+      fs.readdir(path.join(galleryRoot, category, 'thumbnails'), (err, contents) => {
         if(err) reject(err);
-        thumbnails = contents.filter(fileName => fileName !== 'thumbnails');
-        resolve(thumbnails.map(thumbnail => {
+        resolve(contents.map(thumbnail => {
           return path.join(galleryPublicRoot, category, 'thumbnails', thumbnail);
         }));
       });
     });
+  }
+
+  function generateImageCards(category){
+    return new Promise((resolve, reject) => {
+    fs.readdir(path.join(galleryRoot, category), (err, contents) => {
+      if (err) reject(err);
+      if(contents == null) return reject();
+      const images = contents.filter((file) => {return file !== 'thumbnails'});
+      resolve(images.map((image) => {
+        return {
+          imageName: path.parse(image).name, // Thank you: Alex Chuev
+          imageURL: `${galleryPublicRoot}/${category}/${image}`,
+          thumbURL: `${galleryPublicRoot}/${category}/thumbnails/_${image}`
+        };
+      }));
+    });
+  });
   }
 }
