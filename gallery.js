@@ -61,15 +61,20 @@ function createGallery(options = {}) {
     };
   }
 
-  function getIndex(req, res, next) {
-    getCategories(options.galleryRoot)
-      .then(generateCategoryCards)
-      .then((cards) => {
-        console.log(cards);
-        req.gallery = cards;
-        next();
-      })
-      .catch(next);
+  function getIndex(funcOptions = {}) {
+    return function getGalleryIndex(req, res, next) {
+      getCategories(options.galleryRoot)
+        .then(generateCategoryCards)
+        .then((cards) => {
+          req.gallery = cards;
+          if (funcOptions.middleware) return next();
+          return res.status(200).send(cards);
+        })
+        .catch((err) => {
+          if (funcOptions.middleware) return next(err);
+          return res.status(500).send(err);
+        });
+    };
   }
 
   function getImagesFromCategory(req, res, next) { // TODO - allow passing of arguments for category
@@ -138,10 +143,11 @@ function createGallery(options = {}) {
       .catch(err => err)));
   }
 
-  function getCategoryThumbnails(category) {
+  function getCategoryThumbnails(category) { // TODO IF no thumbnail directory, use puctures
     return new Promise((resolve, reject) => {
       fs.readdir(path.join(options.galleryRoot, category, 'thumbnails'), (err, contents) => {
         if (err) reject(err);
+        if (contents == null) { return reject("noThumb") }
         resolve(contents.map(thumbnail => path.join(options.galleryPublicRoot, category, 'thumbnails', thumbnail)));
       });
     });
