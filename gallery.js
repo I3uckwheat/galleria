@@ -55,8 +55,8 @@ function createGallery(options = {}) {
           saveImage(image, req.body[options.category]), // TODO set category
           saveThumbnail(image, req.body[options.category]),
         ])))
-          .then(() => { res.status(200).end(''); })
-          .catch(console.error);
+          .then(() => { res.status(200).send('Successful Upload'); })
+          .catch((err) => { res.status(500).send(err); });
       });
     };
   }
@@ -67,23 +67,29 @@ function createGallery(options = {}) {
         .then(generateCategoryCards)
         .then((cards) => {
           req.gallery = cards;
-          if (funcOptions.middleware) return next();
-          return res.status(200).send(cards);
+          if (funcOptions.json) return res.status(200).send(cards);
+          return next();
         })
         .catch((err) => {
-          if (funcOptions.middleware) return next(err);
-          return res.status(500).send(err);
+          if (!funcOptions.json) return res.status(500).send(err);
+          return next(err);
         });
     };
   }
 
-  function getImagesFromCategory(req, res, next) { // TODO - allow passing of arguments for category
-    generateImageCards(req.params.category)
-      .then((imageCards) => {
-        req.gallery = imageCards;
-        next();
-      })
-      .catch(() => next());
+  function getImagesFromCategory(funcOptions = {}) {
+    return function getImages(req, res, next) { // TODO - allow passing of arguments for category
+      generateImageCards(req.params.category)
+        .then((imageCards) => {
+          if (funcOptions.json) { return res.status(200).json(imageCards); }
+          req.gallery = imageCards;
+          return next();
+        })
+        .catch((err) => {
+          if (funcOptions.json) return res.status(404).send('Category Not Found');
+          return next(err);
+        });
+    };
   }
 
   function removeCategory(req, res, next) { // TODO check for windows compatibility
@@ -147,7 +153,7 @@ function createGallery(options = {}) {
     return new Promise((resolve, reject) => {
       fs.readdir(path.join(options.galleryRoot, category, 'thumbnails'), (err, contents) => {
         if (err) reject(err);
-        if (contents == null) { return reject("noThumb") }
+        if (contents == null) { return reject('noThumb'); }
         resolve(contents.map(thumbnail => path.join(options.galleryPublicRoot, category, 'thumbnails', thumbnail)));
       });
     });
