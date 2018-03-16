@@ -67,11 +67,11 @@ function createGallery(options = {}) {
         .then(generateCategoryCards)
         .then((cards) => {
           req.gallery = cards;
-          if (funcOptions.json) return res.status(200).send(cards);
+          if (funcOptions.ajax) return res.status(200).send(cards);
           return next();
         })
         .catch((err) => {
-          if (!funcOptions.json) return res.status(500).send(err);
+          if (!funcOptions.ajax) return res.status(500).send(err);
           return next(err);
         });
     };
@@ -81,35 +81,45 @@ function createGallery(options = {}) {
     return function getImages(req, res, next) { // TODO - allow passing of arguments for category
       generateImageCards(req.params.category)
         .then((imageCards) => {
-          if (funcOptions.json) { return res.status(200).json(imageCards); }
+          if (funcOptions.ajax) { return res.status(200).json(imageCards); }
           req.gallery = imageCards;
           return next();
         })
         .catch((err) => {
-          if (funcOptions.json) return res.status(404).send('Category Not Found');
+          if (funcOptions.ajax) return res.status(404).send('Category Not Found');
           return next(err);
         });
     };
   }
 
-  function removeCategory(req, res, next) { // TODO check for windows compatibility
-    fs.remove(path.join(options.galleryRoot, req.params.category))
-      .then(() => res.status(204).send(''))
-      .catch(next);
+  function removeCategory(funcOptions) {
+    return function deleteCategoryDir(req, res, next) { // TODO check for windows compatibility
+      fs.remove(path.join(options.galleryRoot, req.params.category))
+        .then(() => {
+          if (funcOptions.ajax) return res.status(204).send('');
+          return next();
+        })
+        .catch((err) => {
+          if (funcOptions.ajax) return res.status(400).send('');
+          return next(err);
+        });
+    }
   }
 
-  function removeImage(req, res, next) {
-    const category = req.params.category;
-    const image = req.params.image;
+  function removeImage(funcOptions) { // TODO allow setting as middleware, dynamic params
+    return function removeImage(req, res, next) {
+      const category = req.params.category;
+      const image = req.params.image;
 
-    fs.unlink(path.join(options.galleryRoot, category, image))
-      .then(() => {
-        fs.unlink(path.join(options.galleryRoot, category, 'thumbnails', `_${image}`));
-      })
-      .then(() => {
-        res.status(202).send('');
-      })
-      .catch(err => res.status(400).send(err));
+      fs.unlink(path.join(options.galleryRoot, category, image))
+        .then(() => {
+          fs.unlink(path.join(options.galleryRoot, category, 'thumbnails', `_${image}`));
+        })
+        .then(() => {
+          res.status(202).send('');
+        })
+        .catch(err => res.status(400).send(err));
+    };
   }
 
   function saveImage(file, category) { // TODO allow renaming from form field
@@ -169,6 +179,7 @@ function createGallery(options = {}) {
           imageName: path.parse(image).name, // Thank you: Alex Chuev
           imageURL: `/${options.galleryPublicRoot}/${category}/${image}`,
           thumbURL: `/${options.galleryPublicRoot}/${category}/thumbnails/_${image}`,
+          imageExt: path.parse(image).ext,
         })));
       });
     });
