@@ -1,12 +1,12 @@
 {
-  "name": "gallery",
-  "version": "0.1.0",
+  "name": "express-galleria",
+  "version": "1.0.0",
   "description": "Generates a gallery from images, handles uploading.",
   "main": "gallery.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "author": "",
+  "author": "Briggs Elsperger <briggse@protonmail.com> (https://www.briggselsperger.com/)",
   "license": "ISC",
   "dependencies": {
     "fs-extra": "^5.0.0",
